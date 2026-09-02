@@ -13,6 +13,7 @@ export interface TriangleSideConfig {
 }
 
 export type TriangleEntryMode = "breakout" | "close_acceptance" | "retest";
+export type TriangleTrendFilter = "none" | "ma_stack";
 
 export const config = {
   ENV: "BACKTEST",
@@ -59,6 +60,8 @@ export const config = {
   TRIANGLE_ALLOW_REVERSE_BREAKOUTS: true,
   TRIANGLE_TARGET_HEIGHT_RATIO: 1,
   TRIANGLE_STOP_BUFFER_ATR: 0.25,
+  TRIANGLE_MIN_STOP_DISTANCE_ATR: 0,
+  TRIANGLE_TREND_FILTER: "none" as TriangleTrendFilter,
   TRIANGLE_ENTRY_MODE: "close_acceptance" as TriangleEntryMode,
   TRIANGLE_CONFIRMATION_MAX_BARS: 2,
   TRIANGLE_RETEST_MAX_BARS: 4,
@@ -84,6 +87,7 @@ export type TriangleConfig = StrategyConfig &
     BACKTEST_PRICE_MODE: BacktestPriceMode;
     MIN_AI_QUALITY: number;
     TRIANGLE_ENTRY_MODE: TriangleEntryMode;
+    TRIANGLE_TREND_FILTER: TriangleTrendFilter;
     LONG: TriangleSideConfig;
     SHORT: TriangleSideConfig;
   };

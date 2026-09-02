@@ -8,13 +8,13 @@ import {
   mirrorCandles,
 } from "./fixtures";
 
-const makeIndicatorsState = () =>
+const makeIndicatorsState = (snapshot: Record<string, unknown> = {}) =>
   ({
     setCurrentBar: jest.fn(),
     next: jest.fn(),
     onBar: jest.fn(),
     ensureInitializedWithCurrentBar: jest.fn(),
-    snapshot: jest.fn(() => ({ baseContext: {} })),
+    snapshot: jest.fn(() => ({ baseContext: {}, ...snapshot })),
     latestNumber: jest.fn(() => undefined),
     isInitialized: jest.fn(() => true),
   }) as any;
@@ -138,5 +138,54 @@ describe("Triangle core", () => {
       kind: "exit",
       code: "TRIANGLE_OPPOSITE_PATTERN_EXIT",
     });
+  });
+
+  it("widens a too-close stop to the configured ATR distance", async () => {
+    const candles = makeAscendingTriangleCandles();
+    const currentCandle = candles[candles.length - 1]!;
+    const marketData = {
+      timestamp: currentCandle.timestamp,
+      currentPrice: currentCandle.close,
+      lastCandle: currentCandle,
+    };
+    const core = await createTriangleCore({
+      config: makeTriangleConfig({
+        TRIANGLE_MIN_STOP_DISTANCE_ATR: 2,
+        LONG: { enable: true, direction: "LONG", minRiskRatio: -100 },
+      }),
+      data: candles.slice(0, -1) as any,
+      strategyApi: makeStrategyApi({ marketData }),
+      indicatorsState: makeIndicatorsState(),
+    });
+
+    const result = await core(currentCandle as any, currentCandle as any);
+    const context = (result as any).signal.additionalIndicators.triangleContext;
+
+    expect(result.kind).toBe("entry");
+    expect(context.minimumStopDistanceAtr).toBe(2);
+    expect(context.stopDistanceAtr).toBeCloseTo(2);
+  });
+
+  it("rejects a breakout against the configured moving-average trend", async () => {
+    const candles = makeAscendingTriangleCandles();
+    const currentCandle = candles[candles.length - 1]!;
+    const marketData = {
+      timestamp: currentCandle.timestamp,
+      currentPrice: currentCandle.close,
+      lastCandle: currentCandle,
+    };
+    const core = await createTriangleCore({
+      config: makeTriangleConfig({ TRIANGLE_TREND_FILTER: "ma_stack" }),
+      data: candles.slice(0, -1) as any,
+      strategyApi: makeStrategyApi({ marketData }),
+      indicatorsState: makeIndicatorsState({
+        maFast: [currentCandle.close + 1],
+        maSlow: [currentCandle.close + 2],
+      }),
+    });
+
+    await expect(
+      core(currentCandle as any, currentCandle as any),
+    ).resolves.toEqual({ kind: "skip", code: "TREND_FILTER_MISMATCH" });
   });
 });

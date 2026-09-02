@@ -32,9 +32,10 @@ touch error, candle containment, sufficient height, and an apex ahead of the
 breakout. These checks keep the pattern distinct from parallel channels and
 already-expired wedges.
 
-The stop sits beyond the opposite boundary. The target projects a configurable
-part of the triangle's starting height from the broken boundary. The detector
-supports `breakout`, `close_acceptance`, and `retest` entries and keeps bounded,
+The stop sits beyond the opposite boundary and can enforce a minimum ATR
+distance from the entry. The target projects a configurable part of the
+triangle's starting height from the broken boundary. The detector supports
+`breakout`, `close_acceptance`, and `retest` entries and keeps bounded,
 replay-safe state.
 
 Primary research fields are grouped by purpose:
@@ -55,6 +56,8 @@ Primary research fields are grouped by purpose:
   - `TRIANGLE_ENTRY_MODE`
   - `TRIANGLE_TARGET_HEIGHT_RATIO`
   - `TRIANGLE_STOP_BUFFER_ATR`
+  - `TRIANGLE_MIN_STOP_DISTANCE_ATR`
+  - `TRIANGLE_TREND_FILTER`
   - `LONG.minRiskRatio` and `SHORT.minRiskRatio`
 
 ## Install

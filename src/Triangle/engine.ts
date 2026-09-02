@@ -799,6 +799,11 @@ export const buildTriangleSignalContext = (pattern: TrianglePattern) => ({
   patternHeightAtr: pattern.patternHeightAtr,
   apexBarsAfterBreakout: pattern.apexBarsAfterBreakout,
   breakoutDistanceAtr: pattern.breakoutDistanceAtr,
+  atr: pattern.atr,
+  stopDistanceAtr:
+    pattern.atr > 0
+      ? Math.abs(pattern.close - pattern.stopLossPrice) / pattern.atr
+      : null,
   targetPrice: pattern.targetPrice,
   stopLossPrice: pattern.stopLossPrice,
   breakoutTimestamp: pattern.breakoutTimestamp,

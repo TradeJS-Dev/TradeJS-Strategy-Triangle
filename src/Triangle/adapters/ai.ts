@@ -37,6 +37,9 @@ Additional Triangle context:
 - patternHeightAtr=${String(context.patternHeightAtr ?? "n/a")}
 - apexBarsAfterBreakout=${String(context.apexBarsAfterBreakout ?? "n/a")}
 - breakoutDistanceAtr=${String(context.breakoutDistanceAtr ?? "n/a")}
+- stopDistanceAtr=${String(context.stopDistanceAtr ?? "n/a")}
+- trendFilter=${String(context.trendFilter ?? "n/a")}
+- trendAligned=${String(context.trendAligned ?? "n/a")}
 - targetPrice=${String(context.targetPrice ?? "n/a")}
 - stopLossPrice=${String(context.stopLossPrice ?? "n/a")}
 - upperPivots=${JSON.stringify(context.upperPivots ?? [])}

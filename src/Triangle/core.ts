@@ -27,6 +27,36 @@ const isOpenPosition = (position: Position | null): position is Position =>
     (position.direction === "LONG" || position.direction === "SHORT"),
   );
 
+const latestFiniteNumber = (value: unknown): number | null => {
+  if (!Array.isArray(value)) return null;
+  for (let index = value.length - 1; index >= 0; index -= 1) {
+    const numeric = Number(value[index]);
+    if (Number.isFinite(numeric)) return numeric;
+  }
+  return null;
+};
+
+const readMaTrend = ({
+  indicators,
+  currentPrice,
+  direction,
+}: {
+  indicators: IndicatorsHistorySnapshot | undefined;
+  currentPrice: number;
+  direction: "LONG" | "SHORT";
+}) => {
+  const snapshot = (indicators ?? {}) as unknown as Record<string, unknown>;
+  const maFast = latestFiniteNumber(snapshot.maFast);
+  const maSlow = latestFiniteNumber(snapshot.maSlow);
+  const aligned =
+    maFast != null &&
+    maSlow != null &&
+    (direction === "LONG"
+      ? currentPrice >= maFast && maFast > maSlow
+      : currentPrice <= maFast && maFast < maSlow);
+  return { maFast, maSlow, aligned };
+};
+
 const buildTriangleStateKey = (config: TriangleConfig) =>
   JSON.stringify({
     atrPeriod: config.TRIANGLE_ATR_PERIOD,
@@ -50,6 +80,8 @@ const buildTriangleStateKey = (config: TriangleConfig) =>
     allowReverseBreakouts: config.TRIANGLE_ALLOW_REVERSE_BREAKOUTS,
     targetHeightRatio: config.TRIANGLE_TARGET_HEIGHT_RATIO,
     stopBufferAtr: config.TRIANGLE_STOP_BUFFER_ATR,
+    minStopDistanceAtr: config.TRIANGLE_MIN_STOP_DISTANCE_ATR,
+    trendFilter: config.TRIANGLE_TREND_FILTER,
     entryMode: config.TRIANGLE_ENTRY_MODE,
     confirmationMaxBars: config.TRIANGLE_CONFIRMATION_MAX_BARS,
     retestMaxBars: config.TRIANGLE_RETEST_MAX_BARS,
@@ -123,11 +155,21 @@ export const createTriangleCore: CreateStrategyCore<
 
     const { timestamp, currentPrice } =
       await strategyApi.getDecisionPriceContext();
+    const minimumStopDistance =
+      pattern.atr * Math.max(0, Number(config.TRIANGLE_MIN_STOP_DISTANCE_ATR));
+    const stopLossPrice =
+      pattern.direction === "LONG"
+        ? Math.min(pattern.stopLossPrice, currentPrice - minimumStopDistance)
+        : Math.max(pattern.stopLossPrice, currentPrice + minimumStopDistance);
+    const entryPattern =
+      stopLossPrice === pattern.stopLossPrice
+        ? pattern
+        : { ...pattern, stopLossPrice, close: currentPrice };
     if (
       !isStopLossOnCorrectSide({
         direction: pattern.direction,
         currentPrice,
-        stopLossPrice: pattern.stopLossPrice,
+        stopLossPrice,
       })
     ) {
       return strategyApi.skip("INVALID_STOP");
@@ -141,7 +183,7 @@ export const createTriangleCore: CreateStrategyCore<
 
     const economics = buildTradeEconomics({
       entryPrice: currentPrice,
-      stopLossPrice: pattern.stopLossPrice,
+      stopLossPrice,
       takeProfitPrice: pattern.targetPrice,
       feeRate: Number(config.FEE_PERCENT ?? 0),
       slippageBps:
@@ -161,8 +203,26 @@ export const createTriangleCore: CreateStrategyCore<
       return strategyApi.skip(`RISK_RATIO:${round(riskRatio)}`);
     }
 
+    const indicators = indicatorsState.snapshot();
+    const maTrend = readMaTrend({
+      indicators,
+      currentPrice,
+      direction: pattern.direction,
+    });
+    if (config.TRIANGLE_TREND_FILTER === "ma_stack" && !maTrend.aligned) {
+      return strategyApi.skip("TREND_FILTER_MISMATCH");
+    }
+
     const signalContext = {
-      ...buildTriangleSignalContext({ ...pattern, close: currentPrice }),
+      ...buildTriangleSignalContext({ ...entryPattern, close: currentPrice }),
+      minimumStopDistanceAtr: Math.max(
+        0,
+        Number(config.TRIANGLE_MIN_STOP_DISTANCE_ATR),
+      ),
+      trendFilter: config.TRIANGLE_TREND_FILTER,
+      trendAligned: maTrend.aligned,
+      maFast: maTrend.maFast,
+      maSlow: maTrend.maSlow,
       executionEconomics: {
         grossRiskRatio: economics.grossRiskRatio,
         netRiskRatio: economics.netRiskRatio,
@@ -170,7 +230,6 @@ export const createTriangleCore: CreateStrategyCore<
         rewardPerUnit: economics.rewardPerUnit,
       },
     };
-    const indicators = indicatorsState.snapshot();
     lastTradeController.markTrade(timestamp);
 
     return strategyApi.entry({
@@ -179,13 +238,13 @@ export const createTriangleCore: CreateStrategyCore<
       indicators,
       additionalIndicators: { triangleContext: signalContext },
       figures: buildTriangleFigures({
-        pattern,
+        pattern: entryPattern,
         entryTimestamp: timestamp,
         entryPrice: currentPrice,
       }),
       orderPlan: {
         qty,
-        stopLossPrice: pattern.stopLossPrice,
+        stopLossPrice,
         takeProfits: [{ rate: 1, price: pattern.targetPrice }],
       },
     });
