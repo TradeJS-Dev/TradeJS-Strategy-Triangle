@@ -1,6 +1,6 @@
 {
   "name": "@tradejs/strategy-triangle",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Ascending, descending, and symmetric triangle breakout strategy with converging boundary geometry for TradeJS.",
   "type": "module",
   "packageManager": "yarn@4.13.0",
